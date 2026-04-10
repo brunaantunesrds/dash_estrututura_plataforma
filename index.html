@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Redacoes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d2e;--surface2:#222640;--accent:#6c63ff;--accent2:#00d4aa;--text:#e8eaf6;--muted:#7b7fa3;--border:#2e3154;--green:#00d4aa;--red:#ff6b6b;--yellow:#ffa94d;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh;}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;}
+.topbar .logo{font-size:18px;font-weight:700;color:var(--accent);}
+.topbar .update{font-size:11px;color:var(--muted);}
+.filters{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.filters label{font-size:11px;color:var(--muted);margin-right:4px;}
+.filters select{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;}
+.filter-item{display:flex;align-items:center;}
+.tabs{display:flex;padding:0 24px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;}
+.tab{padding:12px 20px;cursor:pointer;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.content{padding:20px 24px;display:none;}
+.content.active{display:block;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}
+.card-value{font-size:28px;font-weight:700;color:var(--text);}
+.card-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+.card-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;margin-top:6px;padding:2px 8px;border-radius:20px;}
+.badge-up{background:rgba(0,212,170,.15);color:var(--green);}
+.badge-down{background:rgba(255,107,107,.15);color:var(--red);}
+.chart-wrap-tall{position:relative;height:260px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{color:var(--muted);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;}
+td{padding:8px 10px;border-bottom:1px solid rgba(46,49,84,.5);color:var(--text);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(108,99,255,.05);}
+.heatmap{display:grid;grid-template-columns:120px repeat(5,1fr);gap:3px;font-size:11px;}
+.hm-header{color:var(--muted);font-weight:600;padding:6px;text-align:center;}
+.hm-label{padding:6px 8px;color:var(--muted);display:flex;align-items:center;}
+.hm-cell{border-radius:4px;padding:6px;text-align:center;font-weight:600;color:#fff;}
+.alert-list{display:flex;flex-direction:column;gap:8px;}
+.alert-item{background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:12px;}
+.score-low{color:var(--red);font-weight:700;}
+.score-high{color:var(--green);font-weight:700;}
+.rank-big{font-size:48px;font-weight:800;color:var(--accent);text-align:center;line-height:1;}
+.rank-label{text-align:center;font-size:12px;color:var(--muted);margin-top:6px;}
+.gap-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12px;}
+.gap-name{width:140px;color:var(--muted);flex-shrink:0;}
+.gap-bar{flex:1;background:var(--surface2);border-radius:4px;height:12px;overflow:hidden;}
+.gap-fill{height:100%;border-radius:4px;}
+.gap-val{width:60px;text-align:right;font-weight:600;}
+.bench-filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 18px;flex-wrap:wrap;}
+@media(max-width:768px){.grid-4,.grid-3{grid-template-columns:repeat(2,1fr);}.grid-2{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div id="modalOverlay" onclick="if(event.target===this)closeModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px;"></div>
+
+<div class="topbar">
+  <div class="logo">Dashboard de Redacoes</div>
+  <div class="update">Atualizacao semanal | 28/03/2026</div>
+</div>
+<div class="filters">
+  <div class="filter-item"><label>Ano</label><select id="fAno"><option>2025</option><option>2024</option></select></div>
+  <div class="filter-item"><label>Unidade</label><select id="fUnidade"><option>Todas</option><option>Unidade A</option><option>Unidade B</option><option>Unidade C</option></select></div>
+  <div class="filter-item"><label>Serie</label><select id="fSerie"><option>Todas</option><option>1a Serie</option><option>2a Serie</option><option>3a Serie</option></select></div>
+  <div class="filter-item"><label>Tipo</label><select id="fExame"><option>ENEM</option><option>Simulado</option><option>Todos</option></select></div>
+  <div class="filter-item"><label>Turma</label><select id="fTurma"><option>Todas</option><option>Turma A</option><option>Turma B</option><option>Turma C</option></select></div>
+</div>
+<div class="tabs">
+  <div class="tab active" onclick="showTab(0)">Visao Geral</div>
+  <div class="tab" onclick="showTab(1)">Tempo de Correcao</div>
+  <div class="tab" onclick="showTab(2)">Pedagogico</div>
+  <div class="tab" onclick="showTab(3)">Notas e Competencias</div>
+  <div class="tab" onclick="showTab(4)">Benchmark ENEM</div>
+</div>
+
+<!-- ABA 0 -->
+<div class="content active" id="tab0">
+  <div class="grid-4">
+    <div class="card"><div class="card-title">Redacoes Enviadas</div><div class="card-value" id="vEnviadas"></div><div class="card-badge badge-up">12% vs ciclo ant.</div></div>
+    <div class="card"><div class="card-title">Redacoes Corrigidas</div><div class="card-value" id="vCorrigidas"></div><div class="card-sub" id="vCorrigidasSub"></div></div>
+    <div class="card"><div class="card-title">Taxa de Entrega</div><div class="card-value" id="vEntrega"></div><div class="card-sub" id="vEntregaSub"></div></div>
+    <div class="card"><div class="card-title">Media Geral</div><div class="card-value" id="vMedia" style="color:var(--yellow)"></div><div class="card-sub" id="vMediaSub"></div><div class="card-badge" id="vMediaBadge"></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Evolucao da Media Mensal</div><div class="chart-wrap-tall"><canvas id="lineChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Distribuicao de Notas</div><div class="chart-wrap-tall"><canvas id="histChart"></canvas></div></div>
+  </div>
+  <div class="grid-3">
+    <div class="card"><div class="card-title">Acima de 900</div><div class="card-value" id="vAcima900" style="color:var(--green)"></div><div class="card-sub" id="vAcima900Sub"></div></div>
+    <div class="card"><div class="card-title">Entre 600-899</div><div class="card-value" id="vMedio" style="color:var(--yellow)"></div><div class="card-sub" id="vMedioSub"></div></div>
+    <div class="card"><div class="card-title">Abaixo de 600</div><div class="card-value" id="vAbaixo600" style="color:var(--red)"></div><div class="card-sub" id="vAbaixo600Sub"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:18px"><div class="card-title">Engajamento - Entregas vs Meta por Mes</div><div class="chart-wrap-tall"><canvas id="engajChart"></canvas></div></div>
+</div>
+
+<!-- ABA 1 -->
+<div class="content" id="tab1">
+  <div class="grid-3">
+    <div class="card"><div class="card-title">Tempo Medio Geral</div><div class="card-value" id="vTempo"></div></div>
+    <div class="card"><div class="card-title">Correcoes em ate 24h</div><div class="card-value" id="vCorreco24"></div></div>
+    <div class="card"><div class="card-title">Correcoes acima de 5 dias</div><div class="card-value" id="vCorrecao5d" style="color:var(--red)"></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Tempo Medio por Unidade/Serie</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:11px;color:var(--muted)">Unidade</label>
+          <select id="fCorrUnidade" onchange="renderCorrUnit()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;"></select>
+        </div>
+      </div>
+      <div class="chart-wrap-tall"><canvas id="corrUnit"></canvas></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Tempo Medio por Turma</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:11px;color:var(--muted)">Unidade</label>
+          <select id="fCorrSerieUnidade" onchange="renderCorrSerie()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;"></select>
+        </div>
+      </div>
+      <div class="chart-wrap-tall"><canvas id="corrSerie"></canvas></div>
+    </div>
+  </div>
+  <div class="card" style="margin-bottom:18px"><div class="card-title" id="tempoMensalTitle">Evolucao Tempo Medio Correcao por Mes</div><div class="chart-wrap-tall"><canvas id="tempoMensalChart"></canvas></div></div>
+
+</div>
+
+<!-- ABA 2 -->
+<div class="content" id="tab2">
+  <div class="grid-3" style="margin-bottom:18px">
+    <div class="card" style="cursor:pointer" onclick="openFeedbackModal()"><div class="card-title">Feedbacks Negativos</div><div class="card-value" id="vFeedbackNeg" style="color:var(--red)"></div><div class="card-badge badge-down" id="vFeedbackNegBadge"></div></div>
+    <div class="card" style="cursor:pointer" onclick="openMonitoriaModal()"><div class="card-title">Solicitacoes de Monitoria</div><div class="card-value" id="vMonitoria" style="color:var(--accent)"></div><div class="card-badge" id="vMonitoriaBadge"></div></div>
+    <div class="card"><div class="card-title">% Feedbacks Negativos</div><div class="card-value" id="vFeedbackPct" style="color:var(--yellow)"></div><div class="card-badge badge-down" id="vFeedbackPctBadge"></div></div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-title" style="margin-bottom:0">Temas Mais Engajadores</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <label style="font-size:11px;color:var(--muted)">Exame</label>
+          <select id="fTemaExame" onchange="renderTemaChart()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">
+            <option value="Todos">Todos</option>
+            <option value="ENEM">ENEM</option>
+            <option value="Simulado">Simulado</option>
+          </select>
+        </div>
+      </div>
+      <div class="chart-wrap-tall"><canvas id="temaChart"></canvas></div>
+    </div>
+
+  </div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Alerta de Risco</div><div class="card-sub" style="margin-bottom:10px" id="riscoSub"></div><div class="alert-list" id="riscoList"></div></div>
+    <div class="card"><div class="card-title">Destaque</div><div class="card-sub" style="margin-bottom:10px" id="destaqueSub"></div><div class="alert-list" id="destaqueList"></div></div>
+  </div>
+  <div class="card" style="margin-bottom:18px"><div class="card-title" id="gapsChartTitle">Competencias vs Media Brasil ENEM</div><div class="card-sub" style="margin-bottom:12px">Comparacao direta - escala ENEM</div><div class="chart-wrap-tall"><canvas id="gapsChart"></canvas></div></div>
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title" id="errosChartTitle">Erros Mais Frequentes</div>
+    <div class="card-sub" style="margin-bottom:14px">Top erros apontados pelos corretores no periodo</div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px" id="errosLegend"></div>
+    <div style="position:relative;height:320px"><canvas id="errosChart"></canvas></div>
+  </div>
+</div>
+
+<!-- ABA 3 -->
+<div class="content" id="tab3">
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Medias por Competencia</div><div class="chart-wrap-tall"><canvas id="radarChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Histograma de Notas</div><div class="chart-wrap-tall"><canvas id="hist2Chart"></canvas></div></div>
+  </div>
+  <div class="grid-2" style="margin-bottom:18px">
+    <div class="card">
+      <div class="card-title" style="color:var(--green)">&#9650; Mapa de Calor - Top 10 Melhores Alunos</div>
+      <div class="heatmap" style="margin-top:10px">
+        <div class="hm-header"></div><div class="hm-header">C1</div><div class="hm-header">C2</div><div class="hm-header">C3</div><div class="hm-header">C4</div><div class="hm-header">C5</div>
+      </div>
+      <div id="heatmapTopBody" style="margin-top:4px"></div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">&#9660; Mapa de Calor - Top 10 Piores Alunos</div>
+      <div class="heatmap" style="margin-top:10px">
+        <div class="hm-header"></div><div class="hm-header">C1</div><div class="hm-header">C2</div><div class="hm-header">C3</div><div class="hm-header">C4</div><div class="hm-header">C5</div>
+      </div>
+      <div id="heatmapBotBody" style="margin-top:4px"></div>
+    </div>
+  </div>
+  <div class="card"><div class="card-title">Ranking por Media Geral</div><div id="rankingTableWrap"></div></div>
+</div>
+
+<!-- ABA 4 -->
+<div class="content" id="tab4">
+  <div class="bench-filter-bar">
+    <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">Comparar com</span>
+    <select id="fEstado" onchange="updateEscolaSelect()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;min-width:180px;">
+      <option value="MG">Minas Gerais</option><option value="SP">Sao Paulo</option><option value="RJ">Rio de Janeiro</option>
+      <option value="RS">Rio Grande do Sul</option><option value="PR">Parana</option><option value="BA">Bahia</option><option value="SC">Santa Catarina</option>
+    </select>
+    <select id="fEscola" onchange="renderBenchmark()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;min-width:220px;"></select>
+    <span style="font-size:11px;color:var(--muted)" id="estadoCtx"></span>
+  </div>
+  <div class="grid-3" id="rankCardsWrap"></div>
+  <div class="grid-2">
+    <div class="card"><div class="card-title">Comparativo Nacional</div><div class="chart-wrap-tall"><canvas id="benchChart"></canvas></div></div>
+    <div class="card"><div class="card-title">Gap em relacao as Referencias</div><div style="margin-top:14px" id="gapBenchWrap"></div></div>
+  </div>
+  <div class="card"><div class="card-title">Comparativo Detalhado por Competencia</div><div id="benchTableWrap"></div></div>
+</div>
+
+<script>
+var tabs=document.querySelectorAll('.tab');
+var contents=document.querySelectorAll('.content');
+function showTab(i){tabs.forEach(function(t,j){t.classList.toggle('active',i===j);contents[j].classList.toggle('active',i===j);});}
+var CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7b7fa3',font:{size:11}}},tooltip:{backgroundColor:'#1a1d2e',borderColor:'#2e3154',borderWidth:1}},scales:{x:{ticks:{color:'#7b7fa3',font:{size:10}},grid:{color:'#2e3154'}},y:{ticks:{color:'#7b7fa3',font:{size:10}},grid:{color:'#2e3154'}}}};
+var CH={};
+function mkChart(id,cfg){
+  if(CH[id])CH[id].destroy();
+  var old=document.getElementById(id);
+  if(!old)return;
+  var c=document.createElement('canvas');c.id=id;
+  old.parentNode.replaceChild(c,old);
+  CH[id]=new Chart(c,cfg);
+}
+function getF(){return{u:document.getElementById('fUnidade').value,s:document.getElementById('fSerie').value,t:document.getElementById('fTurma').value};}
+function pick(map,u,s){if(u!=='Todas'&&map[u])return map[u];if(s!=='Todas'&&map[s])return map[s];return map.all;}
+function closeModal(){document.getElementById('modalOverlay').style.display='none';}
+var MESES=['Ago','Set','Out','Nov','Dez','Jan','Fev','Mar'];
+
+// ---- DATA ----
+var OV={all:{env:3847,cor:3612,entPct:87,entOf:'3.847 de 4.421',media:724,a900:'14,2%',a900n:'513',mid:'61,4%',midn:'2.219',b600:'24,4%',b600n:'880'},'Unidade A':{env:1204,cor:1130,entPct:91,entOf:'1.204 de 1.323',media:758,a900:'17,1%',a900n:'205',mid:'63,8%',midn:'767',b600:'19,1%',b600n:'229'},'Unidade B':{env:1180,cor:1108,entPct:83,entOf:'1.180 de 1.421',media:721,a900:'12,8%',a900n:'151',mid:'60,9%',midn:'718',b600:'26,3%',b600n:'310'},'Unidade C':{env:1228,cor:1152,entPct:76,entOf:'1.228 de 1.616',media:694,a900:'11,4%',a900n:'140',mid:'60,9%',midn:'748',b600:'27,7%',b600n:'340'},'1a Serie':{env:1240,cor:1160,entPct:82,entOf:'1.240 de 1.512',media:672,a900:'9,2%',a900n:'114',mid:'58,1%',midn:'720',b600:'32,7%',b600n:'406'},'2a Serie':{env:1290,cor:1210,entPct:87,entOf:'1.290 de 1.483',media:718,a900:'13,4%',a900n:'173',mid:'62,2%',midn:'803',b600:'24,4%',b600n:'315'},'3a Serie':{env:1317,cor:1242,entPct:91,entOf:'1.317 de 1.447',media:748,a900:'17,2%',a900n:'227',mid:'63,7%',midn:'839',b600:'19,1%',b600n:'251'}};
+var LN={all:{labels:MESES,datasets:[{label:'Media Geral',data:[660,675,682,700,695,710,718,724],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4}]},'Unidade A':{labels:MESES,datasets:[{label:'Unidade A',data:[692,705,714,730,726,740,750,758],borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.15)',fill:true,tension:.4}]},'Unidade B':{labels:MESES,datasets:[{label:'Unidade B',data:[650,665,672,690,685,700,712,721],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4}]},'Unidade C':{labels:MESES,datasets:[{label:'Unidade C',data:[630,644,660,672,668,682,688,694],borderColor:'#ffa94d',backgroundColor:'rgba(255,169,77,.15)',fill:true,tension:.4}]},'1a Serie':{labels:MESES,datasets:[{label:'1a Serie',data:[620,634,648,660,655,664,668,672],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4}]},'2a Serie':{labels:MESES,datasets:[{label:'2a Serie',data:[660,672,682,698,694,706,712,718],borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.15)',fill:true,tension:.4}]},'3a Serie':{labels:MESES,datasets:[{label:'3a Serie',data:[700,714,722,736,732,740,744,748],borderColor:'#ffa94d',backgroundColor:'rgba(255,169,77,.15)',fill:true,tension:.4}]}};
+var HL=['<500','500-599','600-699','700-799','800-899','>=900'];
+var HC=['#ff6b6b','#ff9f6b','#6c63ff','#a78bfa','#ffa94d','#00d4aa'];
+var HD={all:[210,670,910,730,609,513],'Unidade A':[42,160,280,248,210,205],'Unidade B':[80,230,310,240,175,151],'Unidade C':[88,280,320,242,160,140],'1a Serie':[120,286,310,220,170,114],'2a Serie':[70,245,320,270,185,173],'3a Serie':[20,139,280,240,171,227]};
+var EG={all:{labels:MESES,entregues:[2820,2980,3120,3280,3150,3410,3560,3720],esperadas:[4200,4200,4200,4300,4300,4300,4400,4421]},'Unidade A':{labels:MESES,entregues:[920,980,1020,1060,1020,1100,1150,1204],esperadas:[1320,1320,1320,1320,1323,1323,1323,1323]},'Unidade B':{labels:MESES,entregues:[900,940,970,1010,980,1060,1100,1140],esperadas:[1400,1400,1400,1410,1410,1420,1420,1421]},'Unidade C':{labels:MESES,entregues:[820,860,890,930,900,970,1010,1060],esperadas:[1560,1560,1560,1570,1570,1580,1610,1616]},'1a Serie':{labels:MESES,entregues:[820,860,900,950,910,1000,1060,1110],esperadas:[1480,1490,1490,1500,1500,1505,1510,1512]},'2a Serie':{labels:MESES,entregues:[900,940,990,1040,1000,1100,1160,1220],esperadas:[1460,1465,1465,1470,1470,1478,1480,1483]},'3a Serie':{labels:MESES,entregues:[960,1000,1050,1100,1060,1150,1200,1250],esperadas:[1420,1428,1428,1434,1434,1440,1444,1447]}};
+var TP={all:{unit:{labels:['Unidade A','Unidade B','Unidade C'],data:[1.9,2.6,3.1],colors:['#00d4aa','#6c63ff','#ffa94d']},serie:{labels:['1a','2a','3a'],data:[2.2,2.4,2.7]},cards:{t:'2,4',c24:'38%',c5d:'11%'}},'Unidade A':{unit:{labels:['1a','2a','3a'],data:[2.0,1.9,1.8],colors:['#00d4aa','#00d4aa','#00d4aa']},serie:{labels:['Turma A','Turma B','Turma C'],data:[1.7,1.9,2.1]},cards:{t:'1,9',c24:'48%',c5d:'5%'}},'Unidade B':{unit:{labels:['1a','2a','3a'],data:[2.4,2.6,2.8],colors:['#6c63ff','#6c63ff','#6c63ff']},serie:{labels:['Turma A','Turma B','Turma C'],data:[2.3,2.6,2.9]},cards:{t:'2,6',c24:'35%',c5d:'13%'}},'Unidade C':{unit:{labels:['1a','2a','3a'],data:[2.8,3.1,3.4],colors:['#ffa94d','#ffa94d','#ffa94d']},serie:{labels:['Turma A','Turma B','Turma C'],data:[2.9,3.1,3.4]},cards:{t:'3,1',c24:'24%',c5d:'18%'}},'1a Serie':{unit:{labels:['Unidade A','Unidade B','Unidade C'],data:[2.0,2.4,2.8],colors:['#00d4aa','#6c63ff','#ffa94d']},serie:{labels:['Turma A','Turma B','Turma C'],data:[2.1,2.4,2.7]},cards:{t:'2,2',c24:'40%',c5d:'9%'}},'2a Serie':{unit:{labels:['Unidade A','Unidade B','Unidade C'],data:[1.9,2.6,3.1],colors:['#00d4aa','#6c63ff','#ffa94d']},serie:{labels:['Turma A','Turma B','Turma C'],data:[2.2,2.4,2.6]},cards:{t:'2,4',c24:'37%',c5d:'11%'}},'3a Serie':{unit:{labels:['Unidade A','Unidade B','Unidade C'],data:[1.8,2.8,3.4],colors:['#00d4aa','#6c63ff','#ffa94d']},serie:{labels:['Turma A','Turma B','Turma C'],data:[2.4,2.7,2.9]},cards:{t:'2,7',c24:'33%',c5d:'14%'}}};
+var TMM={all:{datasets:[{label:'Rede',data:[3.2,3.0,2.9,2.7,2.8,2.6,2.5,2.4],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#6c63ff'}]},'Unidade A':{datasets:[{label:'Unidade A',data:[2.4,2.3,2.2,2.1,2.2,2.0,1.9,1.9],borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#00d4aa'}]},'Unidade B':{datasets:[{label:'Unidade B',data:[3.2,3.1,2.9,2.8,2.9,2.7,2.6,2.6],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#6c63ff'}]},'Unidade C':{datasets:[{label:'Unidade C',data:[4.0,3.8,3.6,3.4,3.5,3.3,3.2,3.1],borderColor:'#ffa94d',backgroundColor:'rgba(255,169,77,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#ffa94d'}]},'1a Serie':{datasets:[{label:'1a',data:[2.8,2.7,2.6,2.4,2.5,2.3,2.2,2.2],borderColor:'#6c63ff',backgroundColor:'rgba(108,99,255,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#6c63ff'}]},'2a Serie':{datasets:[{label:'2a',data:[3.0,2.9,2.8,2.6,2.7,2.5,2.4,2.4],borderColor:'#00d4aa',backgroundColor:'rgba(0,212,170,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#00d4aa'}]},'3a Serie':{datasets:[{label:'3a',data:[3.4,3.2,3.0,2.8,2.9,2.7,2.6,2.7],borderColor:'#ffa94d',backgroundColor:'rgba(255,169,77,.15)',fill:true,tension:.4,pointRadius:4,pointBackgroundColor:'#ffa94d'}]}};
+var TC={all:[{turma:'Turma A',unid:'Unidade A',exame:'ENEM',n:412,t:'1,8d',st:'var(--green)',sl:'Otimo'},{turma:'Turma B',unid:'Unidade A',exame:'ENEM',n:389,t:'2,1d',st:'var(--green)',sl:'Bom'},{turma:'Turma C',unid:'Unidade B',exame:'Simulado',n:356,t:'3,4d',st:'var(--yellow)',sl:'Regular'},{turma:'Turma D',unid:'Unidade B',exame:'ENEM',n:298,t:'4,1d',st:'var(--yellow)',sl:'Regular'},{turma:'Turma E',unid:'Unidade C',exame:'ENEM',n:274,t:'6,2d',st:'var(--red)',sl:'Critico'}],'Unidade A':[{turma:'Turma A',unid:'1a Serie',exame:'ENEM',n:134,t:'1,7d',st:'var(--green)',sl:'Otimo'},{turma:'Turma B',unid:'2a Serie',exame:'ENEM',n:133,t:'1,8d',st:'var(--green)',sl:'Otimo'}],'Unidade B':[{turma:'Turma A',unid:'1a Serie',exame:'ENEM',n:131,t:'2,3d',st:'var(--green)',sl:'Bom'},{turma:'Turma E',unid:'3a Serie',exame:'ENEM',n:132,t:'6,2d',st:'var(--red)',sl:'Critico'}],'Unidade C':[{turma:'Turma A',unid:'1a Serie',exame:'ENEM',n:137,t:'2,9d',st:'var(--yellow)',sl:'Regular'},{turma:'Turma C',unid:'3a Serie',exame:'ENEM',n:136,t:'5,4d',st:'var(--red)',sl:'Critico'}]};
+var FB={all:{neg:247,pct:'6,4%',badge:'12 vs ciclo ant.',pctBadge:'0,3pp vs ciclo ant.',up:false},'Unidade A':{neg:62,pct:'5,1%',badge:'3 vs ciclo ant.',pctBadge:'0,2pp',up:false},'Unidade B':{neg:88,pct:'7,4%',badge:'5 vs ciclo ant.',pctBadge:'0,4pp',up:false},'Unidade C':{neg:97,pct:'7,9%',badge:'4 vs ciclo ant.',pctBadge:'0,3pp',up:false},'1a Serie':{neg:98,pct:'7,9%',badge:'6 vs ciclo ant.',pctBadge:'0,5pp',up:false},'2a Serie':{neg:84,pct:'6,5%',badge:'3 vs ciclo ant.',pctBadge:'0,2pp',up:false},'3a Serie':{neg:65,pct:'4,9%',badge:'2 vs ciclo ant.',pctBadge:'0,1pp',up:true}};
+var MN={all:{total:134,badge:'8 vs ciclo ant.',up:false},'Unidade A':{total:38,badge:'2 vs ciclo ant.',up:false},'Unidade B':{total:52,badge:'4 vs ciclo ant.',up:false},'Unidade C':{total:44,badge:'3 vs ciclo ant.',up:false},'1a Serie':{total:58,badge:'5 vs ciclo ant.',up:false},'2a Serie':{total:44,badge:'2 vs ciclo ant.',up:false},'3a Serie':{total:32,badge:'1 vs ciclo ant.',up:true}};
+var FBSt={all:[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A',nota:440},{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C',nota:480},{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B',nota:520},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B',nota:560}],'Unidade A':[{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C',nota:480},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B',nota:560}],'Unidade B':[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A',nota:440},{n:'Ricardo Alves',u:'Un.B',s:'1a',t:'T.C',nota:510}],'Unidade C':[{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B',nota:520},{n:'Mariana Reis',u:'Un.C',s:'2a',t:'T.A',nota:550}],'1a Serie':[{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B',nota:520},{n:'Thiago Lima',u:'Un.B',s:'1a',t:'T.A',nota:540}],'2a Serie':[{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C',nota:480},{n:'Mariana Reis',u:'Un.C',s:'2a',t:'T.A',nota:550}],'3a Serie':[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A',nota:440},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B',nota:560}]};
+var MNSt={all:[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A'},{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C'},{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B'},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B'},{n:'Ricardo Alves',u:'Un.B',s:'1a',t:'T.C'},{n:'Mariana Reis',u:'Un.C',s:'2a',t:'T.A'}],'Unidade A':[{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C'},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B'}],'Unidade B':[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A'},{n:'Ricardo Alves',u:'Un.B',s:'1a',t:'T.C'}],'Unidade C':[{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B'},{n:'Mariana Reis',u:'Un.C',s:'2a',t:'T.A'}],'1a Serie':[{n:'Pedro Costa',u:'Un.C',s:'1a',t:'T.B'},{n:'Ricardo Alves',u:'Un.B',s:'1a',t:'T.C'}],'2a Serie':[{n:'Carlos Souza',u:'Un.A',s:'2a',t:'T.C'},{n:'Mariana Reis',u:'Un.C',s:'2a',t:'T.A'}],'3a Serie':[{n:'Ana Lima',u:'Un.B',s:'3a',t:'T.A'},{n:'Julia Mendes',u:'Un.A',s:'3a',t:'T.B'}]};
+var TM={
+  all:{
+    Todos:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[620,540,490,410,380],med:[740,720,700,690,730]},
+    ENEM:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[420,360,330,270,250],med:[748,728,708,698,738]},
+    Simulado:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[200,180,160,140,130],med:[728,708,688,678,718]}
+  },
+  'Unidade A':{
+    Todos:{labels:['Tecnologia','Saude Publica','Educacao','Desigualdade','Meio Ambiente'],ent:[220,195,180,165,160],med:[758,742,748,720,730]},
+    ENEM:{labels:['Tecnologia','Saude Publica','Educacao','Desigualdade','Meio Ambiente'],ent:[150,130,120,110,105],med:[765,748,754,726,736]},
+    Simulado:{labels:['Tecnologia','Saude Publica','Educacao','Desigualdade','Meio Ambiente'],ent:[70,65,60,55,55],med:[748,732,740,710,720]}
+  },
+  'Unidade B':{
+    Todos:{labels:['Meio Ambiente','Tecnologia','Desigualdade','Saude Publica','Educacao'],ent:[200,198,172,162,158],med:[726,730,704,706,718]},
+    ENEM:{labels:['Meio Ambiente','Tecnologia','Desigualdade','Saude Publica','Educacao'],ent:[135,132,115,108,106],med:[732,736,710,712,724]},
+    Simulado:{labels:['Meio Ambiente','Tecnologia','Desigualdade','Saude Publica','Educacao'],ent:[65,66,57,54,52],med:[716,720,694,696,708]}
+  },
+  'Unidade C':{
+    Todos:{labels:['Saude Publica','Desigualdade','Tecnologia','Educacao','Meio Ambiente'],ent:[195,182,175,155,148],med:[698,688,700,694,710]},
+    ENEM:{labels:['Saude Publica','Desigualdade','Tecnologia','Educacao','Meio Ambiente'],ent:[130,122,118,104,99],med:[704,694,706,700,716]},
+    Simulado:{labels:['Saude Publica','Desigualdade','Tecnologia','Educacao','Meio Ambiente'],ent:[65,60,57,51,49],med:[688,678,690,684,700]}
+  },
+  '1a Serie':{
+    Todos:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[210,188,170,148,140],med:[678,668,660,655,670]},
+    ENEM:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[140,125,114,98,94],med:[684,674,666,661,676]},
+    Simulado:{labels:['Tecnologia','Meio Ambiente','Saude Publica','Desigualdade','Educacao'],ent:[70,63,56,50,46],med:[668,658,650,645,660]}
+  },
+  '2a Serie':{
+    Todos:{labels:['Meio Ambiente','Tecnologia','Educacao','Desigualdade','Saude Publica'],ent:[218,202,180,162,155],med:[724,728,720,706,714]},
+    ENEM:{labels:['Meio Ambiente','Tecnologia','Educacao','Desigualdade','Saude Publica'],ent:[146,136,120,108,104],med:[730,734,726,712,720]},
+    Simulado:{labels:['Meio Ambiente','Tecnologia','Educacao','Desigualdade','Saude Publica'],ent:[72,66,60,54,51],med:[714,718,710,696,704]}
+  },
+  '3a Serie':{
+    Todos:{labels:['Saude Publica','Tecnologia','Desigualdade','Meio Ambiente','Educacao'],ent:[222,208,190,172,162],med:[748,752,738,730,742]},
+    ENEM:{labels:['Saude Publica','Tecnologia','Desigualdade','Meio Ambiente','Educacao'],ent:[148,140,128,116,108],med:[754,758,744,736,748]},
+    Simulado:{labels:['Saude Publica','Tecnologia','Desigualdade','Meio Ambiente','Educacao'],ent:[74,68,62,56,54],med:[738,742,728,720,732]}
+  }
+};
+function renderTemaChart(){
+  var f=getF(),u=f.u,s=f.s;
+  var exEl=document.getElementById('fTemaExame');
+  var exame=exEl?exEl.value:'Todos';
+  var tmd=pick(TM,u,s);
+  var d=tmd[exame]||tmd['Todos'];
+  mkChart('temaChart',{type:'bar',data:{labels:d.labels,datasets:[{label:'Entregas',data:d.ent,backgroundColor:'rgba(108,99,255,.7)',borderRadius:6},{label:'Media',data:d.med,backgroundColor:'rgba(0,212,170,.7)',borderRadius:6}]},options:Object.assign({},CD)});
+}
+var PG={all:[{label:'1a',data:[620,640,655,668,672],borderColor:'#6c63ff'},{label:'2a',data:[660,678,690,705,718],borderColor:'#00d4aa'},{label:'3a',data:[700,715,722,730,738],borderColor:'#ffa94d'}],'Unidade A':[{label:'1a-A',data:[638,656,670,684,692],borderColor:'#6c63ff'},{label:'2a-A',data:[680,696,708,722,736],borderColor:'#00d4aa'},{label:'3a-A',data:[718,732,740,748,756],borderColor:'#ffa94d'}],'Unidade B':[{label:'1a-B',data:[608,628,642,655,660],borderColor:'#6c63ff'},{label:'2a-B',data:[648,665,678,692,704],borderColor:'#00d4aa'},{label:'3a-B',data:[690,704,712,720,728],borderColor:'#ffa94d'}],'Unidade C':[{label:'1a-C',data:[594,614,628,640,645],borderColor:'#6c63ff'},{label:'2a-C',data:[632,650,662,675,685],borderColor:'#00d4aa'},{label:'3a-C',data:[670,684,692,700,708],borderColor:'#ffa94d'}],'1a Serie':[{label:'1a Serie',data:[620,640,655,668,672],borderColor:'#6c63ff'}],'2a Serie':[{label:'2a Serie',data:[660,678,690,705,718],borderColor:'#00d4aa'}],'3a Serie':[{label:'3a Serie',data:[700,715,722,730,738],borderColor:'#ffa94d'}]};
+var AL={risco:{all:[{n:'Ana Lima - 3a A - Un.B',s:440},{n:'Carlos Souza - 2a C - Un.A',s:480},{n:'Pedro Costa - 1a B - Un.C',s:520},{n:'Julia Mendes - 3a B - Un.A',s:560}],'Unidade A':[{n:'Carlos Souza - 2a C',s:480},{n:'Julia Mendes - 3a B',s:560}],'Unidade B':[{n:'Ana Lima - 3a A',s:440},{n:'Ricardo Alves - 1a C',s:510}],'Unidade C':[{n:'Pedro Costa - 1a B',s:520},{n:'Mariana Reis - 2a A',s:550}],'1a Serie':[{n:'Pedro Costa - Un.C',s:520},{n:'Thiago Lima - Un.B',s:540}],'2a Serie':[{n:'Carlos Souza - Un.A',s:480},{n:'Mariana Reis - Un.C',s:550}],'3a Serie':[{n:'Ana Lima - Un.B',s:440},{n:'Julia Mendes - Un.A',s:560}]},destaque:{all:[{n:'Maria Silva - 3a A - Un.A',s:960},{n:'Lucas Ferreira - 2a A - Un.B',s:940},{n:'Beatriz Nunes - 3a C - Un.A',s:920},{n:'Gabriel Rocha - 1a A - Un.C',s:910}],'Unidade A':[{n:'Maria Silva - 3a A',s:960},{n:'Beatriz Nunes - 3a C',s:920}],'Unidade B':[{n:'Lucas Ferreira - 2a A',s:940},{n:'Fernanda Cruz - 1a B',s:912}],'Unidade C':[{n:'Gabriel Rocha - 1a A',s:910},{n:'Caio Martins - 3a B',s:908}],'1a Serie':[{n:'Gabriel Rocha - Un.C',s:910},{n:'Fernanda Cruz - Un.B',s:912}],'2a Serie':[{n:'Lucas Ferreira - Un.B',s:940},{n:'Isabela Teixeira - Un.A',s:916}],'3a Serie':[{n:'Maria Silva - Un.A',s:960},{n:'Beatriz Nunes - Un.A',s:920}]}};
+var GP={all:{escola:[164,150,136,144,116],brasil:[124,152,122,134,118]},'Unidade A':{escola:[168,156,144,152,128],brasil:[124,152,122,134,118]},'Unidade B':{escola:[160,148,140,146,118],brasil:[124,152,122,134,118]},'Unidade C':{escola:[156,144,132,142,112],brasil:[124,152,122,134,118]},'1a Serie':{escola:[155,142,128,138,108],brasil:[124,152,122,134,118]},'2a Serie':{escola:[164,150,136,144,116],brasil:[124,152,122,134,118]},'3a Serie':{escola:[170,158,144,150,124],brasil:[124,152,122,134,118]}};
+
+var ERROS={
+  all:[{e:'A construcao ficou confusa, refaca-a.',c:'Norma culta',q:42},{e:'Invista em repertorio sociocultural.',c:'Argumentacao',q:38},{e:'Marcas de oralidade devem ser evitadas.',c:'Norma culta',q:34},{e:'Use conectivos para ligar as partes do texto.',c:'Coesao',q:31},{e:'Proposta de intervencao sem ACAO.',c:'Proposta',q:28},{e:'Retire a virgula - uso indevido.',c:'Norma culta',q:26},{e:'Aqui e necessario usar virgula.',c:'Norma culta',q:22},{e:'Argumento nao desenvolvido suficientemente.',c:'Argumentacao',q:20},{e:'Esqueceu de apresentar quem realizara a acao.',c:'Proposta',q:18},{e:'Topico frasal ausente no paragrafo.',c:'Argumentacao',q:16}],
+  'Unidade A':[{e:'Marcas de oralidade devem ser evitadas.',c:'Norma culta',q:18},{e:'Invista em repertorio sociocultural.',c:'Argumentacao',q:16},{e:'Proposta de intervencao sem ACAO.',c:'Proposta',q:14},{e:'Use conectivos para ligar as partes.',c:'Coesao',q:12},{e:'Argumento nao desenvolvido suficientemente.',c:'Argumentacao',q:10}],
+  'Unidade B':[{e:'A construcao ficou confusa, refaca-a.',c:'Norma culta',q:20},{e:'Retire a virgula - uso indevido.',c:'Norma culta',q:16},{e:'Aqui e necessario usar virgula.',c:'Norma culta',q:14},{e:'Topico frasal ausente no paragrafo.',c:'Argumentacao',q:10},{e:'Esqueceu de apresentar quem realizara a acao.',c:'Proposta',q:8}],
+  'Unidade C':[{e:'A construcao ficou confusa, refaca-a.',c:'Norma culta',q:22},{e:'Invista em repertorio sociocultural.',c:'Argumentacao',q:18},{e:'Use conectivos para ligar as partes.',c:'Coesao',q:15},{e:'Proposta de intervencao sem ACAO.',c:'Proposta',q:14},{e:'Argumento nao desenvolvido suficientemente.',c:'Argumentacao',q:10}],
+  '1a Serie':[{e:'A construcao ficou confusa, refaca-a.',c:'Norma culta',q:28},{e:'Retire a virgula - uso indevido.',c:'Norma culta',q:22},{e:'Marcas de oralidade devem ser evitadas.',c:'Norma culta',q:20},{e:'Aqui e necessario usar virgula.',c:'Norma culta',q:18},{e:'Use conectivos para ligar as partes.',c:'Coesao',q:14}],
+  '2a Serie':[{e:'Invista em repertorio sociocultural.',c:'Argumentacao',q:22},{e:'Topico frasal ausente no paragrafo.',c:'Argumentacao',q:18},{e:'Argumento nao desenvolvido suficientemente.',c:'Argumentacao',q:16},{e:'Use conectivos para ligar as partes.',c:'Coesao',q:14},{e:'A construcao ficou confusa, refaca-a.',c:'Norma culta',q:12}],
+  '3a Serie':[{e:'Proposta de intervencao sem ACAO.',c:'Proposta',q:24},{e:'Esqueceu de apresentar quem realizara a acao.',c:'Proposta',q:20},{e:'Invista em repertorio sociocultural.',c:'Argumentacao',q:16},{e:'Efeito da proposta de intervencao ausente.',c:'Proposta',q:14},{e:'Argumento nao desenvolvido suficientemente.',c:'Argumentacao',q:12}]
+};
+var CRITERIO_COLORS={'Norma culta':'rgba(108,99,255,.85)','Argumentacao':'rgba(0,212,170,.85)','Coesao':'rgba(255,169,77,.85)','Proposta':'rgba(255,107,107,.85)','Compreensao':'rgba(162,107,255,.85)'};
+function getErros(u,s){if(u!=='Todas'&&ERROS[u])return ERROS[u];if(s!=='Todas'&&ERROS[s])return ERROS[s];return ERROS.all;}
+
+var RD={all:[{label:'Unidade A',data:[840,780,720,760,640],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Unidade B',data:[800,740,700,730,590],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Unidade C',data:[780,700,660,710,560],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'Unidade A':{all:[{label:'Unidade A',data:[840,780,720,760,640],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'}],'1a Serie':[{label:'Un.A-1a',data:[800,740,690,720,600],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'}],'2a Serie':[{label:'Un.A-2a',data:[820,760,710,750,630],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'}],'3a Serie':[{label:'Un.A-3a',data:[860,800,740,780,660],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'}],turmas:{'1a Serie':[{label:'Turma A',data:[815,755,700,735,615],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[798,738,688,718,598],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[787,727,682,707,587],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'2a Serie':[{label:'Turma A',data:[830,768,718,758,638],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[818,758,708,748,628],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[814,754,704,744,624],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'3a Serie':[{label:'Turma A',data:[868,808,748,788,668],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[858,798,740,780,658],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[854,794,732,772,652],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}]}},'Unidade B':{all:[{label:'Unidade B',data:[800,740,700,730,590],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'}],'1a Serie':[{label:'Un.B-1a',data:[770,712,670,702,562],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'}],'2a Serie':[{label:'Un.B-2a',data:[798,738,698,728,588],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'}],'3a Serie':[{label:'Un.B-3a',data:[824,764,724,754,614],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'}],turmas:{'1a Serie':[{label:'Turma A',data:[780,722,680,712,572],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[768,710,668,700,560],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[762,704,662,694,554],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'2a Serie':[{label:'Turma A',data:[806,746,706,736,596],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[798,738,698,728,588],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[790,730,690,720,580],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'3a Serie':[{label:'Turma A',data:[832,772,732,762,622],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[824,764,724,754,614],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[816,756,716,746,606],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}]}},'Unidade C':{all:[{label:'Unidade C',data:[780,700,660,710,560],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'1a Serie':[{label:'Un.C-1a',data:[752,674,636,684,536],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'2a Serie':[{label:'Un.C-2a',data:[778,698,658,708,558],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'3a Serie':[{label:'Un.C-3a',data:[804,722,682,732,582],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],turmas:{'1a Serie':[{label:'Turma A',data:[760,682,644,692,544],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[752,674,636,684,536],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[744,666,628,676,528],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'2a Serie':[{label:'Turma A',data:[786,706,666,716,566],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[778,698,658,708,558],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[770,690,650,700,550],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'3a Serie':[{label:'Turma A',data:[812,730,690,740,590],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Turma B',data:[804,722,682,732,582],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Turma C',data:[796,714,674,724,574],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}]}},'1a Serie':[{label:'Un.A-1a',data:[800,740,690,720,600],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Un.B-1a',data:[770,712,670,702,562],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Un.C-1a',data:[752,674,636,684,536],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'2a Serie':[{label:'Un.A-2a',data:[820,760,710,750,630],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Un.B-2a',data:[798,738,698,728,588],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Un.C-2a',data:[778,698,658,708,558],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}],'3a Serie':[{label:'Un.A-3a',data:[860,800,740,780,660],borderColor:'#00d4aa',bg:'rgba(0,212,170,.75)'},{label:'Un.B-3a',data:[824,764,724,754,614],borderColor:'#6c63ff',bg:'rgba(108,99,255,.75)'},{label:'Un.C-3a',data:[804,722,682,732,582],borderColor:'#ffa94d',bg:'rgba(255,169,77,.75)'}]};
+var H2={all:[280,520,620,380,180],'Unidade A':[80,160,210,130,70],'Unidade B':[100,182,200,118,51],'Unidade C':[100,178,210,132,59],'1a Serie':[140,240,200,100,40],'2a Serie':[90,190,220,130,60],'3a Serie':[50,160,240,180,90]};
+var RK={all:[{m:'1',unit:'Unidade A',med:758,c1:840,c2:780,c3:720,c4:760,c5:640,al:'1.204'},{m:'2',unit:'Unidade B',med:721,c1:800,c2:740,c3:700,c4:730,c5:590,al:'1.180'},{m:'3',unit:'Unidade C',med:694,c1:780,c2:700,c3:660,c4:710,c5:560,al:'1.228'}],'Unidade A':{all:[{m:'1',unit:'Unidade A',med:758,c1:840,c2:780,c3:720,c4:760,c5:640,al:'1.204'}],'1a Serie':[{m:'1',unit:'Un.A-1a',med:720,c1:800,c2:740,c3:690,c4:720,c5:600,al:'401'}],'2a Serie':[{m:'1',unit:'Un.A-2a',med:748,c1:820,c2:760,c3:710,c4:750,c5:630,al:'398'}],'3a Serie':[{m:'1',unit:'Un.A-3a',med:770,c1:860,c2:800,c3:740,c4:780,c5:660,al:'405'}],turmas:{'1a Serie':[{m:'1',unit:'Turma A',med:735,c1:815,c2:755,c3:700,c4:735,c5:615,al:'134'},{m:'2',unit:'Turma B',med:718,c1:798,c2:738,c3:688,c4:718,c5:598,al:'133'},{m:'3',unit:'Turma C',med:707,c1:787,c2:727,c3:682,c4:707,c5:587,al:'134'}]}},'Unidade B':{all:[{m:'1',unit:'Unidade B',med:721,c1:800,c2:740,c3:700,c4:730,c5:590,al:'1.180'}],'1a Serie':[{m:'1',unit:'Un.B-1a',med:692,c1:770,c2:712,c3:670,c4:702,c5:562,al:'392'}],'2a Serie':[{m:'1',unit:'Un.B-2a',med:718,c1:798,c2:738,c3:698,c4:728,c5:588,al:'394'}],'3a Serie':[{m:'1',unit:'Un.B-3a',med:745,c1:824,c2:764,c3:724,c4:754,c5:614,al:'394'}],turmas:{'1a Serie':[{m:'1',unit:'Turma A',med:702,c1:780,c2:722,c3:680,c4:712,c5:572,al:'131'},{m:'2',unit:'Turma B',med:690,c1:768,c2:710,c3:668,c4:700,c5:560,al:'131'},{m:'3',unit:'Turma C',med:684,c1:762,c2:704,c3:662,c4:694,c5:554,al:'130'}]}},'Unidade C':{all:[{m:'1',unit:'Unidade C',med:694,c1:780,c2:700,c3:660,c4:710,c5:560,al:'1.228'}],'1a Serie':[{m:'1',unit:'Un.C-1a',med:668,c1:752,c2:674,c3:636,c4:684,c5:536,al:'409'}],'2a Serie':[{m:'1',unit:'Un.C-2a',med:692,c1:778,c2:698,c3:658,c4:708,c5:558,al:'410'}],'3a Serie':[{m:'1',unit:'Un.C-3a',med:718,c1:804,c2:722,c3:682,c4:732,c5:582,al:'409'}],turmas:{'1a Serie':[{m:'1',unit:'Turma A',med:676,c1:760,c2:682,c3:644,c4:692,c5:544,al:'137'},{m:'2',unit:'Turma B',med:668,c1:752,c2:674,c3:636,c4:684,c5:536,al:'136'},{m:'3',unit:'Turma C',med:660,c1:744,c2:666,c3:628,c4:676,c5:528,al:'136'}]}},'1a Serie':[{m:'1',unit:'Un.A-1a',med:720,c1:800,c2:740,c3:690,c4:720,c5:600,al:'401'},{m:'2',unit:'Un.B-1a',med:692,c1:770,c2:712,c3:670,c4:702,c5:562,al:'392'},{m:'3',unit:'Un.C-1a',med:668,c1:752,c2:674,c3:636,c4:684,c5:536,al:'409'}],'2a Serie':[{m:'1',unit:'Un.A-2a',med:748,c1:820,c2:760,c3:710,c4:750,c5:630,al:'398'},{m:'2',unit:'Un.B-2a',med:718,c1:798,c2:738,c3:698,c4:728,c5:588,al:'394'},{m:'3',unit:'Un.C-2a',med:692,c1:778,c2:698,c3:658,c4:708,c5:558,al:'410'}],'3a Serie':[{m:'1',unit:'Un.A-3a',med:770,c1:860,c2:800,c3:740,c4:780,c5:660,al:'405'},{m:'2',unit:'Un.B-3a',med:745,c1:824,c2:764,c3:724,c4:754,c5:614,al:'394'},{m:'3',unit:'Un.C-3a',med:718,c1:804,c2:722,c3:682,c4:732,c5:582,al:'409'}]};
+var MC=['var(--green)','var(--accent)','var(--yellow)'];
+var BN={all:{escola:724,gap:'+94',gapTop:'-226'},'Unidade A':{escola:758,gap:'+128',gapTop:'-192'},'Unidade B':{escola:721,gap:'+91',gapTop:'-229'},'Unidade C':{escola:694,gap:'+64',gapTop:'-256'},'1a Serie':{escola:672,gap:'+42',gapTop:'-278'},'2a Serie':{escola:718,gap:'+88',gapTop:'-232'},'3a Serie':{escola:748,gap:'+118',gapTop:'-202'}};
+var ES={MG:{nome:'Minas Gerais',rankNac:142,totalNac:3847,rankEst:18,totalEst:412,rankMun:5,totalMun:87,cidade:'BH',mediaNac:630,mediaEst:648,mediaTop10:800,mediaTop1:950},SP:{nome:'Sao Paulo',rankNac:142,totalNac:3847,rankEst:31,totalEst:892,rankMun:12,totalMun:214,cidade:'SP',mediaNac:630,mediaEst:661,mediaTop10:800,mediaTop1:950},RJ:{nome:'Rio de Janeiro',rankNac:142,totalNac:3847,rankEst:22,totalEst:378,rankMun:8,totalMun:142,cidade:'RJ',mediaNac:630,mediaEst:644,mediaTop10:800,mediaTop1:950},RS:{nome:'Rio Grande do Sul',rankNac:142,totalNac:3847,rankEst:14,totalEst:298,rankMun:4,totalMun:68,cidade:'Porto Alegre',mediaNac:630,mediaEst:652,mediaTop10:800,mediaTop1:950},PR:{nome:'Parana',rankNac:142,totalNac:3847,rankEst:11,totalEst:264,rankMun:3,totalMun:54,cidade:'Curitiba',mediaNac:630,mediaEst:655,mediaTop10:800,mediaTop1:950},BA:{nome:'Bahia',rankNac:142,totalNac:3847,rankEst:8,totalEst:188,rankMun:2,totalMun:41,cidade:'Salvador',mediaNac:630,mediaEst:618,mediaTop10:800,mediaTop1:950},SC:{nome:'Santa Catarina',rankNac:142,totalNac:3847,rankEst:9,totalEst:198,rankMun:3,totalMun:44,cidade:'Florianopolis',mediaNac:630,mediaEst:660,mediaTop10:800,mediaTop1:950}};
+var ESC={MG:['Colegio Pitagoras BH','Colegio Santa Maria','EE Florestan Fernandes','Colegio Dom Bosco','Colegio Magnum'],SP:['Colegio Objetivo','Colegio Etapa','Colegio Rio Branco','Colegio Bandeirantes','EE Fernao Dias'],RJ:['Colegio Andrews','Colegio Santo Inacio','Colegio Sao Bento','CEFET-RJ','EM Joao de Deus'],RS:['Colegio Anchieta','Colegio Marista Rosario','IEESP','Colegio Farroupilha','Colegio La Salle'],PR:['Colegio Medianeira','Colegio Bom Jesus','Colegio Positivo','EE Newton Freire Maia','Colegio Erasto Gaertner'],BA:['Colegio Antonio Vieira','EE Luis Eduardo Magalhaes','Colegio Salesiano','IFBA','Colegio Marista Salvador'],SC:['Colegio Catarinense','EE Simao Hess','Colegio Energia','Colegio Marista Floripa','IEE SC']};
+var ESCmed={MG:[728,720,714,706,698],SP:[734,726,718,710,702],RJ:[720,712,706,698,690],RS:[726,718,712,704,696],PR:[728,720,714,706,698],BA:[714,706,700,692,684],SC:[724,716,710,702,694]};
+
+function updateEscolaSelect(){
+  var estado=document.getElementById('fEstado').value;
+  var sel=document.getElementById('fEscola');
+  var escolas=ESC[estado]||[];
+  sel.innerHTML='<option value="media">Media do Estado</option>'+escolas.map(function(e,i){return'<option value="'+i+'">'+e+'</option>';}).join('');
+  renderBenchmark();
+}
+
+var HR=[{label:'<500',min:0,max:499},{label:'500-599',min:500,max:599},{label:'600-699',min:600,max:699},{label:'700-799',min:700,max:799},{label:'800-899',min:800,max:899},{label:'>=900',min:900,max:1000}];
+var FNA=['Ana','Carlos','Pedro','Julia','Maria','Lucas','Beatriz','Gabriel','Fernanda','Thiago'];
+var LNA=['Silva','Santos','Oliveira','Souza','Lima','Costa','Ferreira','Alves','Pereira','Rocha'];
+function genStudents(ri){var r=HR[ri],total=HD.all[ri],sample=Math.min(total,50),out=[];for(var i=0;i<sample;i++){var seed=ri*100+i;out.push({nome:FNA[(seed*7)%FNA.length]+' '+LNA[(seed*11)%LNA.length],unidade:['Un.A','Un.B','Un.C'][(seed*3)%3],serie:['1a','2a','3a'][(seed*5)%3],turma:'T'+['A','B','C'][(seed*9)%3],nota:r.min+((seed*37+13)%(r.max-r.min+1))});}return out.sort(function(a,b){return b.nota-a.nota;});}
+function showModal(html){var ov=document.getElementById('modalOverlay');ov.innerHTML=html;ov.style.display='flex';}
+function modalWrap(title,sub,btnFn,tableHtml,notice){return'<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;gap:16px;"><div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:16px;font-weight:700;color:var(--text)">'+title+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+sub+'</div></div><div style="display:flex;gap:10px;"><button onclick="'+btnFn+'()" style="background:var(--accent);border:none;color:#fff;padding:7px 16px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">Baixar CSV</button><button onclick="closeModal()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;">Fechar</button></div></div>'+(notice||'')+'<div style="overflow-y:auto;flex:1;">'+tableHtml+'</div></div>';}
+function dlCSV(csv,fname){var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);}
+function openHistModal(ri){var range=HR[ri],students=genStudents(ri),total=HD.all[ri],color=HC[ri];var notice=total>50?'<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Exibindo 50 de '+total+' alunos.</div>':'';var rows=students.map(function(s,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+s.nome+'</td><td>'+s.unidade+'</td><td>'+s.serie+'</td><td>'+s.turma+'</td><td><b style="color:'+color+'">'+s.nota+'</b></td></tr>';}).join('');showModal(modalWrap('Alunos - Faixa '+range.label,total+' alunos','dlHistCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>',notice));window.dlHistCSV=function(){dlCSV('Nome,Unidade,Serie,Turma,Nota\n'+students.map(function(s){return s.nome+','+s.unidade+','+s.serie+','+s.turma+','+s.nota;}).join('\n'),'faixa_'+ri+'.csv');};}
+function openFeedbackModal(){var f=getF(),key=f.u!=='Todas'?f.u:(f.s!=='Todas'?f.s:'all');var students=FBSt[key]||FBSt.all,fb=pick(FB,f.u,f.s);var rows=students.map(function(a,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+a.n+'</td><td>'+a.u+'</td><td>'+a.s+'</td><td>'+a.t+'</td><td><b style="color:var(--red)">'+a.nota+'</b></td></tr>';}).join('');showModal(modalWrap('Feedbacks Negativos',fb.neg+' alunos','dlFBCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>'));window.dlFBCSV=function(){dlCSV('Nome,Unidade,Serie,Turma,Nota\n'+students.map(function(a){return a.n+','+a.u+','+a.s+','+a.t+','+a.nota;}).join('\n'),'feedbacks.csv');};}
+function openMonitoriaModal(){var f=getF(),key=f.u!=='Todas'?f.u:(f.s!=='Todas'?f.s:'all');var students=MNSt[key]||MNSt.all,mn=pick(MN,f.u,f.s);var rows=students.map(function(a,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+a.n+'</td><td>'+a.u+'</td><td>'+a.s+'</td><td>'+a.t+'</td></tr>';}).join('');showModal(modalWrap('Solicitacoes de Monitoria',mn.total+' solicitacoes','dlMNCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th></tr></thead><tbody>'+rows+'</tbody></table>'));window.dlMNCSV=function(){dlCSV('Nome,Unidade,Serie,Turma\n'+students.map(function(a){return a.n+','+a.u+','+a.s+','+a.t;}).join('\n'),'monitoria.csv');};}
+
+
+function renderCorrSerie(){
+  var f=getF(),u=f.u,s=f.s;
+  var sel=document.getElementById('fCorrSerieUnidade');
+  if(!sel)return;
+  var unitKeys=['Todas','Unidade A','Unidade B','Unidade C'];
+  var existing=Array.from(sel.options).map(function(o){return o.value;});
+  if(existing.join()!==unitKeys.join()){
+    sel.innerHTML=unitKeys.map(function(k){return'<option value="'+k+'">'+k+'</option>';}).join('');
+  }
+  var chosen=sel.value||'Todas';
+  var td=chosen==='Todas'?pick(TP,u,s):(TP[chosen]||pick(TP,u,s));
+  mkChart('corrSerie',{type:'bar',data:{labels:td.serie.labels,datasets:[{label:'Dias',data:td.serie.data,backgroundColor:'#6c63ff',borderRadius:6}]},options:Object.assign({},CD)});
+}
+function renderCorrUnit(){
+  var f=getF(),u=f.u,s=f.s;
+  var td=pick(TP,u,s);
+  var sel=document.getElementById('fCorrUnidade');
+  if(!sel)return;
+  // Rebuild options if labels changed
+  var allLabels=td.unit.labels;
+  var existing=Array.from(sel.options).filter(function(o){return o.value!=='Todas';}).map(function(o){return o.value;});
+  var same=existing.length===allLabels.length&&allLabels.every(function(l,i){return l===existing[i];});
+  if(!same){
+    sel.innerHTML='<option value="Todas">Todas</option>'+allLabels.map(function(l){return'<option value="'+l+'">'+l+'</option>';}).join('');
+  }
+  var chosen=sel.value;
+  var filtLabels=[],filtData=[],filtColors=[];
+  allLabels.forEach(function(lbl,i){
+    if(chosen==='Todas'||chosen===lbl){
+      filtLabels.push(lbl);
+      filtData.push(td.unit.data[i]);
+      filtColors.push(td.unit.colors[i]||'#6c63ff');
+    }
+  });
+  mkChart('corrUnit',{type:'bar',data:{labels:filtLabels,datasets:[{label:'Dias',data:filtData,backgroundColor:filtColors,borderRadius:6}]},options:Object.assign({},CD,{indexAxis:'y'})});
+}
+function renderAll(){
+  var f=getF(),u=f.u,s=f.s,t=f.t;
+  var ov=pick(OV,u,s);
+  document.getElementById('vEnviadas').textContent=ov.env.toLocaleString('pt-BR');
+  document.getElementById('vCorrigidas').textContent=ov.cor.toLocaleString('pt-BR');
+  document.getElementById('vCorrigidasSub').textContent=Math.round(ov.cor/ov.env*100)+'% das enviadas';
+  document.getElementById('vEntrega').textContent=ov.entPct+'%';
+  document.getElementById('vEntregaSub').textContent=ov.entOf+' esperadas';
+  document.getElementById('vMedia').textContent=ov.media;
+  var top1=950,gapTop1=ov.media-top1;
+  document.getElementById('vMediaSub').textContent=(gapTop1>=0?'Acima':'Abaixo')+' do Top 1% BR ('+top1+')';
+  document.getElementById('vMediaBadge').textContent=gapTop1+' pts vs Top 1% BR';
+  document.getElementById('vMediaBadge').className='card-badge '+(gapTop1>=0?'badge-up':'badge-down');
+  document.getElementById('vAcima900').textContent=ov.a900;document.getElementById('vAcima900Sub').textContent=ov.a900n+' alunos';
+  document.getElementById('vMedio').textContent=ov.mid;document.getElementById('vMedioSub').textContent=ov.midn+' alunos';
+  document.getElementById('vAbaixo600').textContent=ov.b600;document.getElementById('vAbaixo600Sub').textContent=ov.b600n+' alunos';
+  var ld=pick(LN,u,s);
+  mkChart('lineChart',{type:'line',data:{labels:ld.labels,datasets:ld.datasets.map(function(d){return Object.assign({},d,{pointBackgroundColor:d.borderColor});})},options:Object.assign({},CD)});
+  var hd=pick(HD,u,s);
+  mkChart('histChart',{type:'bar',data:{labels:HL,datasets:[{label:'Alunos',data:hd,backgroundColor:HC,borderRadius:6}]},options:Object.assign({},CD,{onClick:function(e,els){if(els.length>0)openHistModal(els[0].index);}})});
+  var eg=pick(EG,u,s);
+  var tx=eg.entregues.map(function(v,i){return Math.round(v/eg.esperadas[i]*100);});
+  mkChart('engajChart',{type:'bar',data:{labels:eg.labels,datasets:[{type:'line',label:'Meta',data:eg.esperadas,borderColor:'#7b7fa3',backgroundColor:'transparent',borderWidth:2,borderDash:[6,4],pointRadius:3,pointBackgroundColor:'#7b7fa3',tension:.3,order:0},{type:'bar',label:'Entregues',data:eg.entregues,backgroundColor:eg.entregues.map(function(v,i){return tx[i]>=90?'rgba(0,212,170,.8)':tx[i]>=75?'rgba(108,99,255,.8)':'rgba(255,107,107,.8)';}),borderRadius:6,order:1}]},options:Object.assign({},CD,{plugins:Object.assign({},CD.plugins,{tooltip:Object.assign({},CD.plugins.tooltip,{callbacks:{afterBody:function(items){return items[0]?['Taxa: '+tx[items[0].dataIndex]+'%']:[];}}})})})}); 
+  var td=pick(TP,u,s);
+  document.getElementById('vTempo').innerHTML=td.cards.t+' <span style="font-size:16px;color:var(--muted)">dias</span>';
+  document.getElementById('vCorreco24').textContent=td.cards.c24;
+  document.getElementById('vCorrecao5d').textContent=td.cards.c5d;
+  renderCorrUnit();
+  renderCorrSerie();
+  var tmm=pick(TMM,u,s);
+  document.getElementById('tempoMensalTitle').textContent='Evolucao Tempo Medio'+(u!=='Todas'?' - '+u:s!=='Todas'?' - '+s:'');
+  mkChart('tempoMensalChart',{type:'line',data:{labels:MESES,datasets:tmm.datasets.map(function(d){return Object.assign({},d);})},options:Object.assign({},CD,{plugins:Object.assign({},CD.plugins,{tooltip:Object.assign({},CD.plugins.tooltip,{callbacks:{label:function(ctx){return' '+ctx.dataset.label+': '+ctx.raw+' dias';}}})})})});
+  var fb=pick(FB,u,s);
+  document.getElementById('vFeedbackNeg').textContent=fb.neg;
+  document.getElementById('vFeedbackNegBadge').textContent=fb.badge;
+  document.getElementById('vFeedbackNegBadge').className='card-badge '+(fb.up?'badge-up':'badge-down');
+  var mn=pick(MN,u,s);
+  document.getElementById('vMonitoria').textContent=mn.total;
+  document.getElementById('vMonitoriaBadge').textContent=mn.badge;
+  document.getElementById('vMonitoriaBadge').className='card-badge '+(mn.up?'badge-up':'badge-down');
+  document.getElementById('vFeedbackPct').textContent=fb.pct;
+  document.getElementById('vFeedbackPctBadge').textContent=fb.pctBadge;
+  document.getElementById('vFeedbackPctBadge').className='card-badge '+(fb.up?'badge-up':'badge-down');
+  renderTemaChart();
+  var alKey=u!=='Todas'?u:(s!=='Todas'?s:'all');
+  var ar=AL.risco[alKey]||AL.risco.all,ad=AL.destaque[alKey]||AL.destaque.all;
+  document.getElementById('riscoSub').textContent=ar.length+' alunos identificados';
+  document.getElementById('riscoList').innerHTML=ar.map(function(a){return'<div class="alert-item"><span>'+a.n+'</span><span class="score-low">'+a.s+'</span></div>';}).join('');
+  document.getElementById('destaqueSub').textContent=ad.length+' alunos identificados';
+  document.getElementById('destaqueList').innerHTML=ad.map(function(a){return'<div class="alert-item"><span>'+a.n+'</span><span class="score-high">'+a.s+'</span></div>';}).join('');
+  var gd=pick(GP,u,s);
+  var gpCtx=u!=='Todas'?u:(s!=='Todas'?s:'Escola');
+  document.getElementById('gapsChartTitle').textContent='Competencias '+gpCtx+' vs Media Brasil ENEM';
+  mkChart('gapsChart',{type:'bar',data:{labels:['C1','C2','C3','C4','C5'],datasets:[{label:gpCtx,data:gd.escola,backgroundColor:'rgba(108,99,255,.75)',borderColor:'#6c63ff',borderWidth:1,borderRadius:4},{label:'Media Brasil',data:gd.brasil,backgroundColor:'rgba(255,169,77,.55)',borderColor:'#ffa94d',borderWidth:1,borderRadius:4}]},options:Object.assign({},CD,{scales:Object.assign({},CD.scales,{y:{min:100,ticks:CD.scales.y.ticks,grid:{color:'#2e3154'}}})})});
+  var erros=getErros(u,s);
+  var erCtx=u!=='Todas'?u:(s!=='Todas'?s:'Rede');
+  document.getElementById('errosChartTitle').textContent='Erros Mais Frequentes - '+erCtx;
+  var criteriosUnicos=[];
+  erros.forEach(function(e){if(criteriosUnicos.indexOf(e.c)<0)criteriosUnicos.push(e.c);});
+  document.getElementById('errosLegend').innerHTML=criteriosUnicos.map(function(c){return'<span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted)"><span style="width:10px;height:10px;border-radius:2px;background:'+(CRITERIO_COLORS[c]||'#888')+';flex-shrink:0"></span>'+c+'</span>';}).join('');
+  mkChart('errosChart',{type:'bar',data:{
+    labels:erros.map(function(e){return e.e.length>44?e.e.substring(0,42)+'...':e.e;}),
+    datasets:[{label:'Ocorrencias',data:erros.map(function(e){return e.q;}),backgroundColor:erros.map(function(e){return CRITERIO_COLORS[e.c]||'rgba(108,99,255,.8)';}),borderRadius:4}]
+  },options:Object.assign({},CD,{indexAxis:'y',plugins:Object.assign({},CD.plugins,{legend:{display:false},tooltip:Object.assign({},CD.plugins.tooltip,{callbacks:{title:function(items){return erros[items[0].dataIndex].e;},label:function(ctx){return' Criterio: '+erros[ctx.dataIndex].c+'   Ocorrencias: '+ctx.raw;}}})}),scales:Object.assign({},CD.scales,{x:Object.assign({},CD.scales.x,{title:{display:true,text:'Numero de ocorrencias',color:'#7b7fa3',font:{size:11}}}),y:Object.assign({},CD.scales.y,{ticks:Object.assign({},CD.scales.y.ticks,{font:{size:10}})})})})});
+  var rd;
+  if(u!=='Todas'){var uD=RD[u];if(!uD){rd=RD.all;}else if(s==='Todas'){rd=uD.all;}else if(t==='Todas'){rd=uD[s]||uD.all;}else{rd=uD.turmas&&uD.turmas[s]?uD.turmas[s].filter(function(r){return r.label==='Turma '+t;}):uD[s]||uD.all;}}
+  else if(s!=='Todas'){rd=RD[s]||RD.all;}else{rd=RD.all;}
+  mkChart('radarChart',{type:'bar',data:{labels:['C1','C2','C3','C4','C5'],datasets:rd.map(function(d){return{label:d.label,data:d.data,backgroundColor:d.bg,borderColor:d.borderColor,borderWidth:1,borderRadius:4};})},options:Object.assign({},CD,{scales:Object.assign({},CD.scales,{y:{min:400,max:1000,ticks:CD.scales.y.ticks,grid:{color:'#2e3154'}}})})});
+  var h2=pick(H2,u,s);
+  mkChart('hist2Chart',{type:'bar',data:{labels:['<600','600-699','700-799','800-899','>=900'],datasets:[{label:'Alunos',data:h2,backgroundColor:'rgba(108,99,255,.7)',borderRadius:6}]},options:Object.assign({},CD)});
+  var HM_TOP=[
+    {n:'Maria Silva',   c:[960,940,940,960,920]},
+    {n:'Lucas Ferreira',c:[940,920,900,940,900]},
+    {n:'Beatriz Nunes', c:[920,900,920,920,880]},
+    {n:'Gabriel Rocha', c:[900,920,880,900,860]},
+    {n:'Fernanda Cruz', c:[900,880,900,880,860]},
+    {n:'Isabela Teixeira',c:[880,900,880,880,840]},
+    {n:'Caio Martins',  c:[880,860,880,900,820]},
+    {n:'Larissa Matos', c:[860,880,860,860,820]},
+    {n:'Rafael Pinto',  c:[860,840,860,880,800]},
+    {n:'Amanda Borges', c:[840,860,840,840,800]}
+  ];
+  var HM_BOT=[
+    {n:'Ana Lima',      c:[440,480,400,460,380]},
+    {n:'Carlos Souza',  c:[480,460,440,480,420]},
+    {n:'Pedro Costa',   c:[520,500,480,520,460]},
+    {n:'Julia Mendes',  c:[560,520,500,540,480]},
+    {n:'Thiago Lima',   c:[540,520,480,520,460]},
+    {n:'Ricardo Alves', c:[510,490,460,500,440]},
+    {n:'Mariana Reis',  c:[550,530,500,540,480]},
+    {n:'Vitor Souza',   c:[530,510,480,520,460]},
+    {n:'Camila Rocha',  c:[560,540,510,550,490]},
+    {n:'Diego Neves',   c:[570,550,520,560,500]}
+  ];
+  function renderHeatmap(bodyId,students){
+    var body=document.getElementById(bodyId);body.innerHTML='';
+    students.forEach(function(st){
+      var row=document.createElement('div');row.className='heatmap';
+      row.innerHTML='<div class="hm-label" style="font-size:10px;color:var(--text)">'+st.n+'</div>'+st.c.map(function(v){
+        var bg=v>=800?'rgba(0,212,170,.75)':v>=600?'rgba(108,99,255,.65)':v>=500?'rgba(255,169,77,.7)':'rgba(255,107,107,.75)';
+        return'<div class="hm-cell" style="background:'+bg+';font-size:11px">'+v+'</div>';
+      }).join('');
+      body.appendChild(row);
+    });
+  }
+  renderHeatmap('heatmapTopBody',HM_TOP);
+  renderHeatmap('heatmapBotBody',HM_BOT);
+  var rk;
+  if(u!=='Todas'){var rkD=RK[u];if(!rkD){rk=RK.all;}else if(s==='Todas'){rk=rkD.all;}else if(t==='Todas'){rk=rkD[s]||rkD.all;}else{rk=rkD.turmas&&rkD.turmas[s]?rkD.turmas[s].filter(function(r){return r.unit==='Turma '+t;}):rkD[s]||rkD.all;}}
+  else if(s!=='Todas'){rk=RK[s]||RK.all;}else{rk=RK.all;}
+  var rkCol=u!=='Todas'?(s!=='Todas'?(t!=='Todas'?'Turma':'Serie'):'Unidade'):(s!=='Todas'?'Serie':'Unidade');
+  document.getElementById('rankingTableWrap').innerHTML='<table><thead><tr><th>#</th><th>'+rkCol+'</th><th>Media</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th><th>Alunos</th></tr></thead><tbody>'+rk.map(function(r,i){return'<tr><td>'+r.m+'</td><td>'+r.unit+'</td><td><b style="color:'+(MC[i]||'var(--muted)')+'">'+r.med+'</b></td><td>'+r.c1+'</td><td>'+r.c2+'</td><td>'+r.c3+'</td><td>'+r.c4+'</td><td>'+r.c5+'</td><td>'+r.al+'</td></tr>';}).join('')+'</tbody></table>';
+  renderBenchmark();
+}
+
+function renderBenchmark(){
+  var estado=document.getElementById('fEstado').value;
+  var escolaSel=document.getElementById('fEscola');
+  if(!escolaSel||!escolaSel.options.length){updateEscolaSelect();return;}
+  var escolaIdx=escolaSel.value;
+  var ed=ES[estado],f=getF(),bd=pick(BN,f.u,f.s);
+  var rd2=f.u!=='Todas'?(RD[f.u]?RD[f.u].all:RD.all):RD.all;
+  var escolaNome=escolaIdx==='media'?('Media - '+ed.nome):(ESC[estado]&&ESC[estado][parseInt(escolaIdx)])||('Media - '+ed.nome);
+  var escolaMed=escolaIdx==='media'?ed.mediaEst:(ESCmed[estado]?ESCmed[estado][parseInt(escolaIdx)]:ed.mediaEst)||ed.mediaEst;
+  document.getElementById('estadoCtx').textContent='vs '+escolaNome;
+  document.getElementById('rankCardsWrap').innerHTML='<div class="card" style="text-align:center"><div class="card-title">Rank Nacional</div><div class="rank-big">#'+ed.rankNac+'</div><div class="rank-label">de '+ed.totalNac.toLocaleString('pt-BR')+' escolas</div></div><div class="card" style="text-align:center"><div class="card-title">Rank Estadual</div><div class="rank-big">#'+ed.rankEst+'</div><div class="rank-label">de '+ed.totalEst.toLocaleString('pt-BR')+' em '+ed.nome+'</div></div><div class="card" style="text-align:center"><div class="card-title">Rank Municipal</div><div class="rank-big">#'+ed.rankMun+'</div><div class="rank-label">de '+ed.totalMun+' em '+ed.cidade+'</div></div>';
+  mkChart('benchChart',{type:'bar',data:{labels:['Media Nacional','Nossa Escola',escolaNome.substring(0,14),'Top 10%','Top 1%'],datasets:[{label:'Media',data:[ed.mediaNac,bd.escola,escolaMed,ed.mediaTop10,ed.mediaTop1],backgroundColor:['rgba(123,127,163,.5)','rgba(108,99,255,.8)','rgba(0,212,170,.6)','rgba(255,169,77,.8)','rgba(0,212,170,.8)'],borderRadius:8}]},options:Object.assign({},CD)});
+  var gapEscola=bd.escola-escolaMed;
+  document.getElementById('gapBenchWrap').innerHTML='<div class="gap-row"><span class="gap-name">Media Escola</span><div class="gap-bar"><div class="gap-fill" style="width:'+Math.round(bd.escola/10)+'%;background:var(--accent)"></div></div><span class="gap-val" style="color:var(--accent)">'+bd.escola+'</span></div><div class="gap-row"><span class="gap-name" style="font-size:10px">'+escolaNome.substring(0,18)+'</span><div class="gap-bar"><div class="gap-fill" style="width:'+Math.round(escolaMed/10)+'%;background:var(--accent2)"></div></div><span class="gap-val" style="color:var(--accent2)">'+escolaMed+'</span></div><div class="gap-row"><span class="gap-name">Media Nacional</span><div class="gap-bar"><div class="gap-fill" style="width:'+Math.round(ed.mediaNac/10)+'%;background:var(--muted)"></div></div><span class="gap-val" style="color:var(--muted)">'+ed.mediaNac+'</span></div><div class="gap-row"><span class="gap-name">Top 10%</span><div class="gap-bar"><div class="gap-fill" style="width:80%;background:var(--yellow)"></div></div><span class="gap-val" style="color:var(--yellow)">800</span></div><div class="gap-row"><span class="gap-name">Top 1%</span><div class="gap-bar"><div class="gap-fill" style="width:95%;background:var(--green)"></div></div><span class="gap-val" style="color:var(--green)">950</span></div><div style="font-size:12px;margin-top:14px;color:var(--muted)">Gap vs Nacional: <span style="color:var(--green);font-weight:700">'+bd.gap+' pts</span> | Gap vs benchmark: <span style="color:'+(gapEscola>=0?'var(--green)':'var(--red)')+';font-weight:700">'+(gapEscola>=0?'+':'')+gapEscola+' pts</span> | Gap vs Top 1%: <span style="color:var(--red);font-weight:700">'+bd.gapTop+' pts</span></div>';
+  var c1=rd2[0]?rd2[0].data[0]:840,c2=rd2[0]?rd2[0].data[1]:750,c3=rd2[0]?rd2[0].data[2]:680,c4=rd2[0]?rd2[0].data[3]:720,c5=rd2[0]?rd2[0].data[4]:580;
+  document.getElementById('benchTableWrap').innerHTML='<table><thead><tr><th>Referencia</th><th>Media</th><th>C1</th><th>C2</th><th>C3</th><th>C4</th><th>C5</th></tr></thead><tbody><tr><td><b style="color:var(--green)">Top 1% Brasil</b></td><td>950</td><td>960</td><td>940</td><td>960</td><td>950</td><td>940</td></tr><tr><td><b style="color:var(--yellow)">Top 10% Brasil</b></td><td>800</td><td>820</td><td>800</td><td>800</td><td>810</td><td>780</td></tr><tr><td><b style="color:var(--accent)">Nossa Escola</b></td><td>'+bd.escola+'</td><td>'+c1+'</td><td>'+c2+'</td><td>'+c3+'</td><td>'+c4+'</td><td>'+c5+'</td></tr><tr><td><b style="color:var(--accent2)">'+escolaNome.substring(0,24)+'</b></td><td>'+escolaMed+'</td><td>'+(escolaMed+10)+'</td><td>'+(escolaMed+2)+'</td><td>'+(escolaMed-6)+'</td><td>'+(escolaMed+4)+'</td><td>'+(escolaMed-28)+'</td></tr><tr><td><b style="color:var(--muted)">Media Nacional</b></td><td>'+ed.mediaNac+'</td><td>660</td><td>640</td><td>620</td><td>630</td><td>600</td></tr></tbody></table>';
+}
+
+['fUnidade','fSerie','fTurma','fAno','fExame'].forEach(function(id){document.getElementById(id).addEventListener('change',renderAll);});
+document.getElementById('fEstado').addEventListener('change',updateEscolaSelect);
+document.getElementById('fEscola').addEventListener('change',renderBenchmark);
+setTimeout(function(){updateEscolaSelect();renderAll();},100);
+</script>
+</body>
+</html>
