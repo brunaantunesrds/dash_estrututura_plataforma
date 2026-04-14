@@ -37,9 +37,11 @@ th{color:var(--muted);font-weight:600;text-align:left;padding:8px 10px;border-bo
 td{padding:8px 10px;border-bottom:1px solid rgba(46,49,84,.5);color:var(--text);}
 tr:last-child td{border-bottom:none;}
 tr:hover td{background:rgba(108,99,255,.05);}
-.heatmap{display:grid;grid-template-columns:120px repeat(5,1fr);gap:3px;font-size:11px;}
+.heatmap{display:grid;grid-template-columns:160px repeat(5,1fr);gap:3px;font-size:11px;}
 .hm-header{color:var(--muted);font-weight:600;padding:6px;text-align:center;}
-.hm-label{padding:6px 8px;color:var(--muted);display:flex;align-items:center;}
+.hm-label{padding:6px 8px;display:flex;flex-direction:column;justify-content:center;}
+.hm-label-name{font-size:10px;color:var(--text);line-height:1.3;}
+.hm-label-total{font-size:9px;color:var(--muted);margin-top:2px;}
 .hm-cell{border-radius:4px;padding:6px;text-align:center;font-weight:600;color:#fff;}
 .alert-list{display:flex;flex-direction:column;gap:8px;}
 .alert-item{background:var(--surface2);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;font-size:12px;}
@@ -178,14 +180,14 @@ tr:hover td{background:rgba(108,99,255,.05);}
     <div class="card">
       <div class="card-title" style="color:var(--green)">&#9650; Mapa de Calor - Top 10 Melhores Alunos</div>
       <div class="heatmap" style="margin-top:10px">
-        <div class="hm-header"></div><div class="hm-header">C1</div><div class="hm-header">C2</div><div class="hm-header">C3</div><div class="hm-header">C4</div><div class="hm-header">C5</div>
+        <div class="hm-header" style="font-size:9px">Aluno / Redações</div><div class="hm-header">Méd. C1</div><div class="hm-header">Méd. C2</div><div class="hm-header">Méd. C3</div><div class="hm-header">Méd. C4</div><div class="hm-header">Méd. C5</div>
       </div>
       <div id="heatmapTopBody" style="margin-top:4px"></div>
     </div>
     <div class="card">
       <div class="card-title" style="color:var(--red)">&#9660; Mapa de Calor - Top 10 Piores Alunos</div>
       <div class="heatmap" style="margin-top:10px">
-        <div class="hm-header"></div><div class="hm-header">C1</div><div class="hm-header">C2</div><div class="hm-header">C3</div><div class="hm-header">C4</div><div class="hm-header">C5</div>
+        <div class="hm-header" style="font-size:9px">Aluno / Redações</div><div class="hm-header">Méd. C1</div><div class="hm-header">Méd. C2</div><div class="hm-header">Méd. C3</div><div class="hm-header">Méd. C4</div><div class="hm-header">Méd. C5</div>
       </div>
       <div id="heatmapBotBody" style="margin-top:4px"></div>
     </div>
@@ -442,36 +444,37 @@ function renderAll(){
   var h2=pick(H2,u,s);
   mkChart('hist2Chart',{type:'bar',data:{labels:['<600','600-699','700-799','800-899','>=900'],datasets:[{label:'Alunos',data:h2,backgroundColor:'rgba(108,99,255,.7)',borderRadius:6}]},options:Object.assign({},CD)});
   var HM_TOP=[
-    {n:'Maria Silva',   c:[960,940,940,960,920]},
-    {n:'Lucas Ferreira',c:[940,920,900,940,900]},
-    {n:'Beatriz Nunes', c:[920,900,920,920,880]},
-    {n:'Gabriel Rocha', c:[900,920,880,900,860]},
-    {n:'Fernanda Cruz', c:[900,880,900,880,860]},
-    {n:'Isabela Teixeira',c:[880,900,880,880,840]},
-    {n:'Caio Martins',  c:[880,860,880,900,820]},
-    {n:'Larissa Matos', c:[860,880,860,860,820]},
-    {n:'Rafael Pinto',  c:[860,840,860,880,800]},
-    {n:'Amanda Borges', c:[840,860,840,840,800]}
+    {n:'Maria Silva',    total:12, c:[960,940,940,960,920]},
+    {n:'Lucas Ferreira', total:11, c:[940,920,900,940,900]},
+    {n:'Beatriz Nunes',  total:10, c:[920,900,920,920,880]},
+    {n:'Gabriel Rocha',  total:10, c:[900,920,880,900,860]},
+    {n:'Fernanda Cruz',  total:9,  c:[900,880,900,880,860]},
+    {n:'Isabela Teixeira',total:9, c:[880,900,880,880,840]},
+    {n:'Caio Martins',   total:8,  c:[880,860,880,900,820]},
+    {n:'Larissa Matos',  total:8,  c:[860,880,860,860,820]},
+    {n:'Rafael Pinto',   total:8,  c:[860,840,860,880,800]},
+    {n:'Amanda Borges',  total:7,  c:[840,860,840,840,800]}
   ];
   var HM_BOT=[
-    {n:'Ana Lima',      c:[440,480,400,460,380]},
-    {n:'Carlos Souza',  c:[480,460,440,480,420]},
-    {n:'Pedro Costa',   c:[520,500,480,520,460]},
-    {n:'Julia Mendes',  c:[560,520,500,540,480]},
-    {n:'Thiago Lima',   c:[540,520,480,520,460]},
-    {n:'Ricardo Alves', c:[510,490,460,500,440]},
-    {n:'Mariana Reis',  c:[550,530,500,540,480]},
-    {n:'Vitor Souza',   c:[530,510,480,520,460]},
-    {n:'Camila Rocha',  c:[560,540,510,550,490]},
-    {n:'Diego Neves',   c:[570,550,520,560,500]}
+    {n:'Ana Lima',       total:3,  c:[440,480,400,460,380]},
+    {n:'Carlos Souza',   total:4,  c:[480,460,440,480,420]},
+    {n:'Pedro Costa',    total:4,  c:[520,500,480,520,460]},
+    {n:'Julia Mendes',   total:5,  c:[560,520,500,540,480]},
+    {n:'Thiago Lima',    total:4,  c:[540,520,480,520,460]},
+    {n:'Ricardo Alves',  total:3,  c:[510,490,460,500,440]},
+    {n:'Mariana Reis',   total:5,  c:[550,530,500,540,480]},
+    {n:'Vitor Souza',    total:4,  c:[530,510,480,520,460]},
+    {n:'Camila Rocha',   total:5,  c:[560,540,510,550,490]},
+    {n:'Diego Neves',    total:3,  c:[570,550,520,560,500]}
   ];
   function renderHeatmap(bodyId,students){
     var body=document.getElementById(bodyId);body.innerHTML='';
     students.forEach(function(st){
       var row=document.createElement('div');row.className='heatmap';
-      row.innerHTML='<div class="hm-label" style="font-size:10px;color:var(--text)">'+st.n+'</div>'+st.c.map(function(v){
+      var labelHtml='<div class="hm-label"><span class="hm-label-name">'+st.n+'</span><span class="hm-label-total">'+st.total+' reda\u00e7\u00f5es</span></div>';
+      row.innerHTML=labelHtml+st.c.map(function(v){
         var bg=v>=800?'rgba(0,212,170,.75)':v>=600?'rgba(108,99,255,.65)':v>=500?'rgba(255,169,77,.7)':'rgba(255,107,107,.75)';
-        return'<div class="hm-cell" style="background:'+bg+';font-size:11px">'+v+'</div>';
+        return'<div class="hm-cell" style="background:'+bg+';font-size:11px" title="M\u00e9dia">'+v+'</div>';
       }).join('');
       body.appendChild(row);
     });
