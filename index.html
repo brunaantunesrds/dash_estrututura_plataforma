@@ -176,6 +176,11 @@ tr:hover td{background:rgba(108,99,255,.05);}
     <div class="card"><div class="card-title">Medias por Competencia</div><div class="chart-wrap-tall"><canvas id="radarChart"></canvas></div></div>
     <div class="card"><div class="card-title">Histograma de Notas</div><div class="chart-wrap-tall"><canvas id="hist2Chart"></canvas></div></div>
   </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <button onclick="downloadPlanilha()" style="background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.5);color:var(--accent);border-radius:6px;padding:6px 14px;font-size:11px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='rgba(108,99,255,.35)'" onmouseout="this.style.background='rgba(108,99,255,.2)'">
+      &#8681; Baixar Planilha Completa
+    </button>
+  </div>
   <div class="grid-2" style="margin-bottom:18px">
     <div class="card">
       <div class="card-title" style="color:var(--green)">&#9650; Mapa de Calor - Top 10 Melhores Alunos</div>
@@ -331,7 +336,14 @@ var LNA=['Silva','Santos','Oliveira','Souza','Lima','Costa','Ferreira','Alves','
 function genStudents(ri){var r=HR[ri],total=HD.all[ri],sample=Math.min(total,50),out=[];for(var i=0;i<sample;i++){var seed=ri*100+i;out.push({nome:FNA[(seed*7)%FNA.length]+' '+LNA[(seed*11)%LNA.length],unidade:['Un.A','Un.B','Un.C'][(seed*3)%3],serie:['1a','2a','3a'][(seed*5)%3],turma:'T'+['A','B','C'][(seed*9)%3],nota:r.min+((seed*37+13)%(r.max-r.min+1))});}return out.sort(function(a,b){return b.nota-a.nota;});}
 function showModal(html){var ov=document.getElementById('modalOverlay');ov.innerHTML=html;ov.style.display='flex';}
 function modalWrap(title,sub,btnFn,tableHtml,notice){return'<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;gap:16px;"><div style="display:flex;align-items:center;justify-content:space-between;"><div><div style="font-size:16px;font-weight:700;color:var(--text)">'+title+'</div><div style="font-size:12px;color:var(--muted);margin-top:3px">'+sub+'</div></div><div style="display:flex;gap:10px;"><button onclick="'+btnFn+'()" style="background:var(--accent);border:none;color:#fff;padding:7px 16px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;">Baixar CSV</button><button onclick="closeModal()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 14px;border-radius:8px;font-size:12px;cursor:pointer;">Fechar</button></div></div>'+(notice||'')+'<div style="overflow-y:auto;flex:1;">'+tableHtml+'</div></div>';}
-function dlCSV(csv,fname){var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);}
+function dlCSV(csv,fname){var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=fname;a.click();URL.revokeObjectURL(url);}
+function downloadPlanilha(){
+  var top=window._hmTop||[];var bot=window._hmBot||[];
+  var rows=['Nome,Total Redacoes,Med. C1,Med. C2,Med. C3,Med. C4,Med. C5,Media Geral,Grupo'];
+  function addRows(list,grupo){list.forEach(function(st){var med=Math.round(st.c.reduce(function(a,b){return a+b;},0)/st.c.length);rows.push([st.n,st.total,st.c[0],st.c[1],st.c[2],st.c[3],st.c[4],med,grupo].join(','));});}
+  addRows(top,'Top 10 Melhores');addRows(bot,'Top 10 Piores');
+  dlCSV(rows.join('\n'),'planilha_alunos.csv');
+}
 function openHistModal(ri){var range=HR[ri],students=genStudents(ri),total=HD.all[ri],color=HC[ri];var notice=total>50?'<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Exibindo 50 de '+total+' alunos.</div>':'';var rows=students.map(function(s,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+s.nome+'</td><td>'+s.unidade+'</td><td>'+s.serie+'</td><td>'+s.turma+'</td><td><b style="color:'+color+'">'+s.nota+'</b></td></tr>';}).join('');showModal(modalWrap('Alunos - Faixa '+range.label,total+' alunos','dlHistCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>',notice));window.dlHistCSV=function(){dlCSV('Nome,Unidade,Serie,Turma,Nota\n'+students.map(function(s){return s.nome+','+s.unidade+','+s.serie+','+s.turma+','+s.nota;}).join('\n'),'faixa_'+ri+'.csv');};}
 function openFeedbackModal(){var f=getF(),key=f.u!=='Todas'?f.u:(f.s!=='Todas'?f.s:'all');var students=FBSt[key]||FBSt.all,fb=pick(FB,f.u,f.s);var rows=students.map(function(a,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+a.n+'</td><td>'+a.u+'</td><td>'+a.s+'</td><td>'+a.t+'</td><td><b style="color:var(--red)">'+a.nota+'</b></td></tr>';}).join('');showModal(modalWrap('Feedbacks Negativos',fb.neg+' alunos','dlFBCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th><th>Nota</th></tr></thead><tbody>'+rows+'</tbody></table>'));window.dlFBCSV=function(){dlCSV('Nome,Unidade,Serie,Turma,Nota\n'+students.map(function(a){return a.n+','+a.u+','+a.s+','+a.t+','+a.nota;}).join('\n'),'feedbacks.csv');};}
 function openMonitoriaModal(){var f=getF(),key=f.u!=='Todas'?f.u:(f.s!=='Todas'?f.s:'all');var students=MNSt[key]||MNSt.all,mn=pick(MN,f.u,f.s);var rows=students.map(function(a,i){return'<tr><td style="color:var(--muted)">'+(i+1)+'</td><td>'+a.n+'</td><td>'+a.u+'</td><td>'+a.s+'</td><td>'+a.t+'</td></tr>';}).join('');showModal(modalWrap('Solicitacoes de Monitoria',mn.total+' solicitacoes','dlMNCSV','<table><thead><tr><th>#</th><th>Nome</th><th>Un.</th><th>Serie</th><th>Turma</th></tr></thead><tbody>'+rows+'</tbody></table>'));window.dlMNCSV=function(){dlCSV('Nome,Unidade,Serie,Turma\n'+students.map(function(a){return a.n+','+a.u+','+a.s+','+a.t;}).join('\n'),'monitoria.csv');};}
@@ -479,6 +491,8 @@ function renderAll(){
       body.appendChild(row);
     });
   }
+  window._hmTop=HM_TOP;
+  window._hmBot=HM_BOT;
   renderHeatmap('heatmapTopBody',HM_TOP);
   renderHeatmap('heatmapBotBody',HM_BOT);
   var rk;
