@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard Redacoes</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 :root{--bg:#0f1117;--surface:#1a1d2e;--surface2:#222640;--accent:#6c63ff;--accent2:#00d4aa;--text:#e8eaf6;--muted:#7b7fa3;--border:#2e3154;--green:#00d4aa;--red:#ff6b6b;--yellow:#ffa94d;}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -63,7 +65,29 @@ tr:hover td{background:rgba(108,99,255,.05);}
 
 <div class="topbar">
   <div class="logo">Dashboard de Redacoes</div>
-  <div class="update">Atualizacao semanal | 28/03/2026</div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div class="update">Atualizacao semanal | 28/03/2026</div>
+    <div style="position:relative">
+      <button id="dlDropBtn" onclick="toggleDlDrop(event)" style="background:rgba(108,99,255,.2);border:1px solid rgba(108,99,255,.5);color:var(--accent);border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='rgba(108,99,255,.35)'" onmouseout="this.style.background='rgba(108,99,255,.2)'">&#8681; Download <span style="font-size:9px;opacity:.7">&#9660;</span></button>
+      <div id="dlDrop" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--surface2);border:1px solid var(--border);border-radius:8px;min-width:220px;z-index:500;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4)">
+        <div style="padding:6px 0">
+          <div style="padding:4px 10px 4px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Visão atual</div>
+          <div onclick="downloadCurrentView()" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Capturar visão atual (PNG)</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:6px 0">
+          <div style="padding:4px 10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Por aba</div>
+          <div onclick="downloadTabPng(0)" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Visão Geral</div>
+          <div onclick="downloadTabPng(1)" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Tempo de Correção</div>
+          <div onclick="downloadTabPng(2)" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Pedagógico</div>
+          <div onclick="downloadTabPng(3)" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Notas e Competências</div>
+          <div onclick="downloadTabPng(4)" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--text)" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128247; Benchmark ENEM</div>
+        </div>
+        <div style="border-top:1px solid var(--border);padding:6px 0">
+          <div onclick="downloadAllPDF()" style="padding:8px 14px;font-size:12px;cursor:pointer;color:var(--accent);font-weight:600" onmouseover="this.style.background='rgba(108,99,255,.15)'" onmouseout="this.style.background='transparent'">&#128196; Dashboard completo (PDF)</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 <div class="filters">
   <div class="filter-item"><label>Ano</label><select id="fAno"><option>2025</option><option>2024</option></select></div>
@@ -224,6 +248,49 @@ tr:hover td{background:rgba(108,99,255,.05);}
 var tabs=document.querySelectorAll('.tab');
 var contents=document.querySelectorAll('.content');
 function showTab(i){tabs.forEach(function(t,j){t.classList.toggle('active',i===j);contents[j].classList.toggle('active',i===j);});}
+var _TAB_FILES=['visao-geral','tempo-correcao','pedagogico','notas-competencias','benchmark-enem'];
+function toggleDlDrop(e){e.stopPropagation();var d=document.getElementById('dlDrop');d.style.display=d.style.display==='none'?'block':'none';}
+document.addEventListener('click',function(){var d=document.getElementById('dlDrop');if(d)d.style.display='none';});
+function _capture(el,cb){html2canvas(el,{backgroundColor:'#0f1117',scale:2,useCORS:true,logging:false}).then(cb);}
+function downloadCurrentView(){
+  document.getElementById('dlDrop').style.display='none';
+  var active=document.querySelector('.content.active');if(!active)return;
+  var idx=0;document.querySelectorAll('.content').forEach(function(t,i){if(t.classList.contains('active'))idx=i;});
+  _capture(active,function(c){var a=document.createElement('a');a.download=_TAB_FILES[idx]+'.png';a.href=c.toDataURL('image/png');a.click();});
+}
+function downloadTabPng(idx){
+  document.getElementById('dlDrop').style.display='none';
+  var prevIdx=0;document.querySelectorAll('.content').forEach(function(t,i){if(t.classList.contains('active'))prevIdx=i;});
+  showTab(idx);renderAll();
+  setTimeout(function(){
+    var active=document.querySelector('.content.active');
+    _capture(active,function(c){showTab(prevIdx);renderAll();var a=document.createElement('a');a.download=_TAB_FILES[idx]+'.png';a.href=c.toDataURL('image/png');a.click();});
+  },700);
+}
+function downloadAllPDF(){
+  document.getElementById('dlDrop').style.display='none';
+  var prevIdx=0;document.querySelectorAll('.content').forEach(function(t,i){if(t.classList.contains('active'))prevIdx=i;});
+  var total=_TAB_FILES.length;var canvases=[];
+  function next(i){
+    if(i>=total){
+      showTab(prevIdx);renderAll();
+      var pdf=null;
+      canvases.forEach(function(c,ci){
+        var wpx=c.width/2,hpx=c.height/2;
+        if(ci===0){pdf=new window.jspdf.jsPDF({orientation:wpx>hpx?'landscape':'portrait',unit:'px',format:[wpx,hpx],compress:true});}
+        else{pdf.addPage([wpx,hpx],wpx>hpx?'landscape':'portrait');}
+        pdf.addImage(c.toDataURL('image/jpeg',0.9),'JPEG',0,0,wpx,hpx);
+      });
+      pdf.save('dashboard-completo.pdf');
+      return;
+    }
+    showTab(i);renderAll();
+    setTimeout(function(){
+      _capture(document.querySelector('.content.active'),function(c){canvases.push(c);next(i+1);});
+    },700);
+  }
+  next(0);
+}
 var CD={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7b7fa3',font:{size:11}}},tooltip:{backgroundColor:'#1a1d2e',borderColor:'#2e3154',borderWidth:1}},scales:{x:{ticks:{color:'#7b7fa3',font:{size:10}},grid:{color:'#2e3154'}},y:{ticks:{color:'#7b7fa3',font:{size:10}},grid:{color:'#2e3154'}}}};
 var CH={};
 function mkChart(id,cfg){
